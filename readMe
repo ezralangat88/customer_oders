@@ -1,0 +1,239 @@
+/** Installing Python **/
+sudo apt update
+sudo apt install python3
+sudo apt install python3-pip
+
+/** Installing django **/
+pip3 install django
+django-admin --version
+
+
+/** Set up MySQL Database **/
+CREATE DATABASE customerapp;
+create user 'customerappuser'@'localhost' identified by 'customerappuser';
+grant all privileges on customerapp.* to 'customerappuser'@'localhost';
+FLUSH PRIVILEGES;
+
+/** Installing the MySQL or MariaDB development libraries to satisfy the build dependencies for mysqlclient **/
+
+sudo apt install default-libmysqlclient-dev build-essential
+
+/** Install MySQL database driver for Python: **/
+pip3 install mysqlclient
+
+docker start mysql8-container
+
+docker exec -it mysql8-container mysql -u root -p
+MYSQL_ROOT_PASSWORD=rootpassword
+
+
+/** Create Django project and configure it to use MySQL.**/
+django-admin startproject customer_orders
+
+/** Modify settings.py to configure your MySQL database: **/
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'myappdb',
+        'USER': 'myappuser',
+        'PASSWORD': 'password',
+        'HOST': 'localhost',
+        'PORT': '3306',
+    }
+}
+
+/** Create Customer and Order Models **/
+python3 manage.py startapp api
+
+/** In api/models.py, define your models: **/
+from django.db import models
+
+class Customer(models.Model):
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=50)
+
+class Order(models.Model):
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
+    item = models.CharField(max_length=255)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    time = models.DateTimeField(auto_now_add=True)
+
+/**Now, add the api app to INSTALLED_APPS in settings.py and migrate the models:**/
+INSTALLED_APPS = [
+    ...
+    'api',
+]
+
+/** Run migrations: **/
+python3 manage.py makemigrations
+python3 manage.py migrate
+
+
+/** Add a REST API with Django REST Framework
+Install Django REST Framework: **/
+pip3 install djangorestframework
+
+/** Update INSTALLED_APPS to include rest_framework: **/
+INSTALLED_APPS = [
+    ...
+    'rest_framework',
+]
+
+/** Create serializers for Customer and Order in api/serializers.py: **/
+from rest_framework import serializers
+from .models import Customer, Order
+
+class CustomerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Customer
+        fields = ['id', 'name', 'code']
+
+class OrderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = ['id', 'customer', 'item', 'amount', 'time']
+
+
+/** Create views in api/views.py: **/
+from rest_framework import viewsets
+from .models import Customer, Order
+from .serializers import CustomerSerializer, OrderSerializer
+
+class CustomerViewSet(viewsets.ModelViewSet):
+    queryset = Customer.objects.all()
+    serializer_class = CustomerSerializer
+
+class OrderViewSet(viewsets.ModelViewSet):
+    queryset = Order.objects.all()
+    serializer_class = OrderSerializer
+
+
+/** Create URL routes in api/urls.py: **/
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import CustomerViewSet, OrderViewSet
+
+router = DefaultRouter()
+router.register(r'customers', CustomerViewSet)
+router.register(r'orders', OrderViewSet)
+
+urlpatterns = [
+    path('', include(router.urls)),
+]
+
+
+/** Update the main urls.py to include API URLs: **/
+# customer_orders/urls.py
+from django.contrib import admin
+from django.urls import path, include
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('api/', include('api.urls')),
+]
+
+/**Implement Authentication via OpenID Connect**/
+pip3 install django-oauth-toolkit
+
+/** Sending SMS Alerts with Africa's Talking
+Install the Africa’s Talking Python SDK: **/
+pip3 install africastalking
+
+
+/**In api/views.py, modify the OrderViewSet to send SMS upon order creation: **/
+import africastalking
+from django.conf import settings
+
+africastalking.initialize('YOUR_USERNAME', 'YOUR_API_KEY')
+sms = africastalking.SMS
+
+def send_sms(phone_number, message):
+    response = sms.send(message, [phone_number])
+    return response
+
+class OrderViewSet(viewsets.ModelViewSet):
+    ...
+    def perform_create(self, serializer):
+        order = serializer.save()
+        customer = order.customer
+        send_sms(customer.phone_number, f"Order {order.item} has been placed.")
+
+/** Optimize Data Structures and Implement Search Functionality
+Add efficient querying by indexing models. Implement a search view to filter orders by date range: **/
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from django.utils.dateparse import parse_datetime
+
+class OrderViewSet(viewsets.ModelViewSet):
+    ...
+    @action(detail=False)
+    def search(self, request):
+        start_date = parse_datetime(request.query_params.get('start'))
+        end_date = parse_datetime(request.query_params.get('end'))
+        orders = Order.objects.filter(time__range=(start_date, end_date))
+        serializer = self.get_serializer(orders, many=True)
+        return Response(serializer.data)
+
+/** Set Up Unit Tests
+Create unit tests in api/tests.py: **/
+from django.test import TestCase
+from .models import Customer, Order
+
+class CustomerOrderTest(TestCase):
+    def setUp(self):
+        self.customer = Customer.objects.create(name='Test User', code='123')
+
+    def test_order_creation(self):
+        order = Order.objects.create(customer=self.customer, item='Item 1', amount=100)
+        self.assertEqual(order.customer, self.customer)
+
+/**  Run tests: **/
+python3 manage.py test
+
+
+/** Set up CI/CD Pipeline
+Use GitHub Actions, GitLab CI, or CircleCI to set up automated CI/CD. Here’s a basic GitHub Action workflow to test and deploy to Heroku: **/
+name: Django CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+    - name: Run tests
+      run: python manage.py test
+    - name: Deploy to Heroku
+      run: git push heroku main
+------------------------------------------------------------------------------------------------------------
+/** create a superuser by running the following command: **/
+python3 manage.py createsuperuser
+
+/** **/
+
+/** **/
+
+/** **/
+
+/** **/
+
+/** **/
+
+/** **/
+
+/** **/
+
+/** **/
+
+/** **/
