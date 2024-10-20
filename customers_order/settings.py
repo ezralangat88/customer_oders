@@ -37,6 +37,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'api',
+    'rest_framework',
 ]
 
 MIDDLEWARE = [
@@ -75,12 +77,14 @@ WSGI_APPLICATION = 'customers_order.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        # 'ENGINE': 'django.db.backends.sqlite3',
+        # 'NAME': BASE_DIR / 'db.sqlite3',    
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'customerapp',  
         'USER': 'customerappuser',
         'PASSWORD': 'customerappuser',
-        'HOST': 'localhost',
-        'PORT': '3306',
+        'HOST': '127.0.0.1',                    # Use '127.0.0.1' to connect to localhost
+        'PORT': '3308',
     }
 }
 
